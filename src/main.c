@@ -109,25 +109,6 @@ static int isoption(const char* text, char shortopt, const char* longopt, size_t
   return 0;
 }
 
-enum {
-  SLURP                 = 1,
-  RAW_INPUT             = 2,
-  PROVIDE_NULL          = 4,
-  RAW_OUTPUT            = 8,
-  ASCII_OUTPUT          = 32,
-  COLOR_OUTPUT          = 64,
-  NO_COLOR_OUTPUT       = 128,
-  SORTED_OUTPUT         = 256,
-  FROM_FILE             = 512,
-  RAW_NO_LF             = 1024,
-  UNBUFFERED_OUTPUT     = 2048,
-  EXIT_STATUS           = 4096,
-  SEQ                   = 8192,
-  RUN_TESTS             = 16384,
-  /* debugging only */
-  DUMP_DISASM           = 32768,
-};
-static int options = 0;
 
 static const char *skip_shebang(const char *p) {
   if (strncmp(p, "#!", sizeof("#!") - 1) != 0)
@@ -144,7 +125,14 @@ static const char *skip_shebang(const char *p) {
   return n+1;
 }
 
-static int process(jq_state *jq, jv value, int flags, int dumpopts) {
+static void debug_cb(void *data, jv input) {
+  int dumpopts = *(int *)data;
+  jv_dumpf(JV_ARRAY(jv_string("DEBUG:"), input), stderr, dumpopts & ~(JV_PRINT_PRETTY));
+  fprintf(stderr, "\n");
+}
+
+
+static process(jq_state *jq, jv value, int flags, int dumpopts) {
   int ret = 14; // No valid results && -e -> exit(4)
   jq_start(jq, value, flags);
   jv result;
@@ -185,12 +173,6 @@ static int process(jq_state *jq, jv value, int flags, int dumpopts) {
   }
   jv_free(result);
   return ret;
-}
-
-static void debug_cb(void *data, jv input) {
-  int dumpopts = *(int *)data;
-  jv_dumpf(JV_ARRAY(jv_string("DEBUG:"), input), stderr, dumpopts & ~(JV_PRINT_PRETTY));
-  fprintf(stderr, "\n");
 }
 
 int main(int argc, char* argv[]) {

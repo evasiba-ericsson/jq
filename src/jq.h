@@ -4,10 +4,33 @@
 #include <stdio.h>
 #include "jv.h"
 
-enum {JQ_DEBUG_TRACE = 1};
+enum {JQ_DEBUG_TRACE = 0};
+
+enum {
+  SLURP                 = 1,
+  RAW_INPUT             = 2,
+  PROVIDE_NULL          = 4,
+  RAW_OUTPUT            = 8,
+  ASCII_OUTPUT          = 32,
+  COLOR_OUTPUT          = 64,
+  NO_COLOR_OUTPUT       = 128,
+  SORTED_OUTPUT         = 256,
+  FROM_FILE             = 512,
+  RAW_NO_LF             = 1024,
+  UNBUFFERED_OUTPUT     = 2048,
+  EXIT_STATUS           = 4096,
+  SEQ                   = 8192,
+  RUN_TESTS             = 16384,
+  /* debugging only */
+  DUMP_DISASM           = 32768,
+};
+
+static int options = 2048;
 
 typedef struct jq_state jq_state;
 typedef void (*jq_msg_cb)(void *, jv);
+
+int jq_process(jq_state *jq, jv value, int flags, int dumpopts, const char*);
 
 jq_state *jq_init(void);
 void jq_set_error_cb(jq_state *, jq_msg_cb, void *);

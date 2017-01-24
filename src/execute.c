@@ -67,6 +67,55 @@ struct frame {
   union frame_entry entries[]; // nclosures + nlocals
 };
 
+
+int jq_process(jq_state *jq, jv value, int flags, int dumpopts, const char* fileName) {
+  FILE *f;
+  f = fopen(fileName, "w");
+  fprintf(stderr, "fileName is: %s : length id %d", fileName, strlen(fileName));
+  int ret = 14; // No valid results && -e -> exit(4)
+  jq_start(jq, value, flags);
+  jv result;
+  while (jv_is_valid(result = jq_next(jq))) {
+    if ((options & RAW_OUTPUT) && jv_get_kind(result) == JV_KIND_STRING) {
+      fwrite(jv_string_value(result), 1, jv_string_length_bytes(jv_copy(result)), f);
+      ret = 0;
+      jv_free(result);
+    } else {
+      if (jv_get_kind(result) == JV_KIND_FALSE || jv_get_kind(result) == JV_KIND_NULL)
+        ret = 11;
+      else
+        ret = 0;
+      if (options & SEQ)
+        priv_fwrite("\036", 1, f, dumpopts & JV_PRINT_ISATTY);
+      jv_dumpf(result, f, dumpopts);
+    }
+    if (!(options & RAW_NO_LF))
+      priv_fwrite("\n", 1, f, dumpopts & JV_PRINT_ISATTY);
+    if (options & UNBUFFERED_OUTPUT)
+      fflush(f);
+  }
+  if (jv_invalid_has_msg(jv_copy(result))) {
+    // Uncaught jq exception
+    jv msg = jv_invalid_get_msg(jv_copy(result));
+    jv input_pos = jq_util_input_get_position(jq);
+    if (jv_get_kind(msg) == JV_KIND_STRING) {
+      fprintf(stderr, "jq: error (at %s): %s\n",
+              jv_string_value(input_pos), jv_string_value(msg));
+    } else {
+      msg = jv_dump_string(msg, 0);
+      fprintf(stderr, "jq: error (at %s) (not a string): %s\n",
+              jv_string_value(input_pos), jv_string_value(msg));
+    }
+    ret = 5;
+    jv_free(input_pos);
+    jv_free(msg);
+  }
+  jv_free(result);
+  fclose(f);
+  return ret;
+}
+
+
 static int frame_size(struct bytecode* bc) {
   return sizeof(struct frame) + sizeof(union frame_entry) * (bc->nclosures + bc->nlocals);
 }
